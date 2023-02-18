@@ -21,7 +21,7 @@ def create_model(num_classes, load_pretrain_weights=True):
                                      norm_layer=torch.nn.BatchNorm2d,
                                      trainable_layers=3)
     # 训练自己数据集时不要修改这里的91，修改的是传入的num_classes参数
-    model = FasterRCNN(backbone=backbone, num_classes=num_classes)
+    model = FasterRCNN(backbone=backbone, num_classes=91)
     
     if load_pretrain_weights:
         # 载入预训练模型权重
@@ -93,7 +93,7 @@ def main(args):
     val_dataset = CocoDetection(data_root, "val", data_transform["val"])
     val_data_set_loader = torch.utils.data.DataLoader(val_dataset,
                                                       batch_size=1,
-                                                      shuffle=False,
+                                                      shuffle=True,
                                                       pin_memory=True,
                                                       num_workers=nw,
                                                       collate_fn=val_dataset.collate_fn)
@@ -187,9 +187,9 @@ if __name__ == "__main__":
     # 训练设备类型
     parser.add_argument('--device', default='cuda:0', help='device')
     # 训练数据集的根目录(VOCdevkit)
-    parser.add_argument('--data_path', default='./coco2017', help='dataset')
+    parser.add_argument('--data_path', default='./data/coco2017', help='dataset')
     # 检测目标类别数(不包含背景)
-    parser.add_argument('--num-classes', default=1, type=int, help='num_classes')
+    parser.add_argument('--num_classes', default=1, type=int, help='num_classes')
     # 文件保存地址
     parser.add_argument('--output-dir', default='./save_weights', help='path where to save')
     # 若需要接着上次训练，则指定上次训练保存权重文件地址
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', default=20, type=int, metavar='N',
                         help='number of total epochs to run')
     # 学习率
-    parser.add_argument('--lr', default=0.005, type=float,
+    parser.add_argument('--lr', default=0.01, type=float,
                         help='initial learning rate, 0.02 is the default value for training '
                              'on 8 gpus and 2 images_per_gpu')
     # SGD的momentum参数
@@ -211,7 +211,7 @@ if __name__ == "__main__":
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
     # 训练的batch size
-    parser.add_argument('--batch_size', default=4, type=int, metavar='N',
+    parser.add_argument('--batch_size', default=2, type=int, metavar='N',
                         help='batch size when training.')
     parser.add_argument('--aspect-ratio-group-factor', default=3, type=int)
     # 是否使用混合精度训练(需要GPU支持混合精度)

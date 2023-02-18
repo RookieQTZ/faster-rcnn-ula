@@ -5,10 +5,13 @@ import random
 import time
 from PIL import Image
 
+# train2017 val2017 test
+MODE = "val2017"
+
 coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/annotations'  # 要生成的标准coco格式标签所在文件夹
 yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/classes.txt'  # 类别文件，一行一个类
-yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/SFID/labels/val'  # yolo格式标签所在文件夹
-img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/SFID/images/val'  # 图片所在文件夹
+yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/SFID/labels/' + MODE  # yolo格式标签所在文件夹
+img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/' + MODE  # 图片所在文件夹
 # coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test'  # 要生成的标准coco格式标签所在文件夹
 # yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/classes.txt'  # 类别文件，一行一个类
 # yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test'  # yolo格式标签所在文件夹
@@ -49,6 +52,7 @@ imageFileList = os.listdir(img_pathDir)  # 遍历该文件夹下的所有文件�
 for i, imageFile in enumerate(imageFileList):
     if not imageFile.endswith(".jpg"):
         continue
+    # jpg_count = sum([filename.endswith(".jpg") for filename in imageFileList])
     visualize(len(imageFileList), i + 1, imageFile)  # 显示进度
     imagePath = os.path.join(img_pathDir, imageFile)  # 获取图片的绝对路径
     image = Image.open(imagePath)  # 读取图片，然后获取图片的宽和高
@@ -77,24 +81,34 @@ for i, imageFile in enumerate(imageFileList):
         class_id, x, y, w, h = line.strip().split(' ')  # 获取每一个标注框的详细信息
         class_id, x, y, w, h = int(class_id), float(x), float(y), float(w), float(h)  # 将字符串类型转为可计算的int和float类型
 
-        xmin = round((x - w / 2) * W, 1)  # 坐标转换 1.01 -> 1.0    1.91 -> 2.0
-        ymin = round((y - h / 2) * H, 1)
-        xmax = round((x + w / 2) * W, 1)
-        ymax = round((y + h / 2) * H, 1)
-        w = round(w * W, 1)
-        h = round(h * H, 1)
+        x = round(x * W) + 0.0  # 641
+        y = round(y * H) + 0.0  # 516
+        w = (w * W) // 2 * 2 + 0.0  # 744
+        h = (h * H) // 2 * 2 + 0.0  # 218
+        xmin = abs((x - w / 2))  # 269
+        ymin = abs((y - h / 2))  # 407
+        xmax = abs((x + w / 2))  # 1013
+        ymax = abs((y + h / 2))  # 625
+
+        # xmin = abs(round((x - w / 2) * W)) + 0.0  # 坐标转换 1.01 -> 1.0    1.91 -> 2.0
+        # ymin = abs(round((y - h / 2) * H)) + 0.0
+        # xmax = abs(round((x + w / 2) * W)) + 0.0
+        # ymax = abs(round((y + h / 2) * H)) + 0.0
+        # w = round(w * W) + 0.0
+        # h = round(h * H) + 0.0
 
         bbox_dict['id'] = i * 10000 + j  # bounding box的坐标信息
         bbox_dict['image_id'] = i
-        bbox_dict['category_id'] = class_id + 1  # 注意目标类别要加一
+        # bbox_dict['category_id'] = class_id + 1  # 注意目标类别要加一
+        bbox_dict['category_id'] = 1  # 注意目标类别要加一
         bbox_dict['iscrowd'] = 0
-        height, width = abs(ymax - ymin), abs(xmax - xmin)
-        bbox_dict['area'] = height * width
+        # height, width = abs(ymax - ymin), abs(xmax - xmin)
+        bbox_dict['area'] = w * h
         bbox_dict['bbox'] = [xmin, ymin, w, h]
         bbox_dict['segmentation'] = [[xmin, ymin, xmax, ymin, xmax, ymax, xmin, ymax]]
         write_json_context['annotations'].append(bbox_dict)  # 将每一个由字典存储的bounding box信息添加到'annotations'列表中
 
-name = os.path.join(coco_format_save_path, "instances_val2017" + '.json')
+name = os.path.join(coco_format_save_path, "instances_" + MODE + '.json')
 with open(name, 'w') as fw:  # 将字典信息写入.json文件中
     json.dump(write_json_context, fw, indent=2)
 print("\ncongratulations: yolo2coco successful!!")

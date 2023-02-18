@@ -25,9 +25,11 @@ def fastrcnn_loss(class_logits, box_regression, labels, regression_targets):
     """
 
     labels = torch.cat(labels, dim=0)
+    # labels = torch.cat(labels, dim=0).reshape()
     regression_targets = torch.cat(regression_targets, dim=0)
 
-    # 计算类别损失信息
+    # 计算类别损失信息，損失太大？？？？？？正负样本不均衡，负样本太大
+    # classification_loss = F.binary_cross_entropy_with_logits(class_logits[:, 1], labels.float())
     classification_loss = F.cross_entropy(class_logits, labels)
 
     # get indices that correspond to the regression targets for
@@ -127,8 +129,8 @@ class RoIHeads(torch.nn.Module):
                 )
             else:
                 #  set to self.box_similarity when https://github.com/pytorch/pytorch/issues/27495 lands
-                # 计算proposal与每个gt_box的iou重合度
-                match_quality_matrix = box_ops.box_iou(gt_boxes_in_image, proposals_in_image)
+                # 计算proposal与每个gt_box的iou重合度？？？？？？
+                match_quality_matrix = box_ops.box_iou(gt_boxes_in_image, proposals_in_image)  # (2,2002)
 
                 # 计算proposal与每个gt_box匹配的iou最大值，并记录索引，
                 # iou < low_threshold索引值为 -1， low_threshold <= iou < high_threshold索引值为 -2
@@ -370,6 +372,7 @@ class RoIHeads(torch.nn.Module):
 
         if self.training:
             # 划分正负样本，统计对应gt的标签以及边界框回归信息
+            # lables出现了2？？
             proposals, labels, regression_targets = self.select_training_samples(proposals, targets)
         else:
             labels = None

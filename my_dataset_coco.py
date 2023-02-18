@@ -122,6 +122,7 @@ class CocoDetection(data.Dataset):
         coco_target = coco.loadAnns(ann_ids)
 
         path = coco.loadImgs(img_id)[0]['file_name']
+        print(path)
         img = Image.open(os.path.join(self.img_root, path)).convert('RGB')
 
         w, h = img.size
