@@ -37,40 +37,44 @@ def coco_remove_images_without_annotations(dataset, ids):
     return valid_ids
 
 
-def convert_to_coco_api(ds):
+def convert_to_coco_api(self):
     coco_ds = COCO()
-    # annotation IDs need to start at 1, not 0
+    # annotation IDs need to start at 1, not 0, see torchvision issue #1530
     ann_id = 1
-    dataset = {'images': [], 'categories': [], 'annotations': []}
+    dataset = {"images": [], "categories": [], "annotations": []}
     categories = set()
-    for img_idx in range(len(ds)):
-        # find better way to get target
-        hw, targets = ds.coco_index(img_idx)
-        image_id = targets["image_id"].item()
-        img_dict = {}
-        img_dict['id'] = image_id
-        img_dict['height'] = hw[0]
-        img_dict['width'] = hw[1]
-        dataset['images'].append(img_dict)
-        bboxes = targets["boxes"]
+    for img_idx in range(len(self)):
+        targets, h, w = self.get_annotations(img_idx)
+        img_id = targets["image_id"].item()
+        img_dict = {"id": img_id,
+                    "height": h,
+                    "width": w}
+        dataset["images"].append(img_dict)
+        bboxes = targets["boxes"].clone()
+        # convert (x_min, ymin, xmax, ymax) to (xmin, ymin, w, h)
         bboxes[:, 2:] -= bboxes[:, :2]
         bboxes = bboxes.tolist()
-        labels = targets['labels'].tolist()
-        areas = targets['area'].tolist()
-        iscrowd = targets['iscrowd'].tolist()
+        labels = targets["labels"].tolist()
+        areas = targets["area"].tolist()
+        iscrowd = targets["iscrowd"].tolist()
+        # if "masks" in targets:
+        #     masks = targets["masks"]
+        #     # make masks Fortran contiguous for coco_mask
+        #     masks = masks.permute(0, 2, 1).contiguous().permute(0, 2, 1)
         num_objs = len(bboxes)
         for i in range(num_objs):
-            ann = {}
-            ann['image_id'] = image_id
-            ann['bbox'] = bboxes[i]
-            ann['category_id'] = labels[i]
+            ann = {"image_id": img_id,
+                   "bbox": bboxes[i],
+                   "category_id": labels[i],
+                   "area": areas[i],
+                   "iscrowd": iscrowd[i],
+                   "id": ann_id}
             categories.add(labels[i])
-            ann['area'] = areas[i]
-            ann['iscrowd'] = iscrowd[i]
-            ann['id'] = ann_id
-            dataset['annotations'].append(ann)
+            # if "masks" in targets:
+            #     ann["segmentation"] = coco_mask.encode(masks[i].numpy())
+            dataset["annotations"].append(ann)
             ann_id += 1
-    dataset['categories'] = [{'id': i} for i in sorted(categories)]
+    dataset["categories"] = [{"id": i} for i in sorted(categories)]
     coco_ds.dataset = dataset
     coco_ds.createIndex()
     return coco_ds
