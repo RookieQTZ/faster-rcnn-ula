@@ -74,7 +74,9 @@ def evaluate(model, data_loader, device):
     header = "Test: "
 
     # 将自己的dataset转换成coco能识别的形式，以便后续进行eval
-    coco = get_coco_api_from_dataset(data_loader.dataset)
+    # coco = get_coco_api_from_dataset(data_loader.dataset)
+    # coco = EvalCOCOMetric(data_loader.dataset.coco, iou_type="bbox", results_file_name="det_results.json")
+    coco = data_loader.dataset.coco
     iou_types = _get_iou_types(model)
     coco_evaluator = CocoEvaluator(coco, iou_types)
 

@@ -140,7 +140,8 @@ def main(parser_data):
     model.to(device)
 
     # evaluate on the test dataset
-    coco = get_coco_api_from_dataset(val_dataset)
+    # coco = get_coco_api_from_dataset(val_dataset)
+    coco = val_dataset.coco
     iou_types = ["bbox"]
     coco_evaluator = CocoEvaluator(coco, iou_types)
     cpu_device = torch.device("cpu")
