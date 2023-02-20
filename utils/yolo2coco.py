@@ -5,17 +5,17 @@ import random
 import time
 from PIL import Image
 
-# train2017 val2017 test
+# train2017 val2017
 MODE = "val2017"
 
-coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/annotations'  # 要生成的标准coco格式标签所在文件夹
-yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/classes.txt'  # 类别文件，一行一个类
-yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/SFID/labels/' + MODE  # yolo格式标签所在文件夹
-img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/' + MODE  # 图片所在文件夹
-# coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test'  # 要生成的标准coco格式标签所在文件夹
-# yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/classes.txt'  # 类别文件，一行一个类
-# yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test'  # yolo格式标签所在文件夹
-# img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test'  # 图片所在文件夹
+# coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/annotations'  # 要生成的标准coco格式标签所在文件夹
+# yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/classes.txt'  # 类别文件，一行一个类
+# yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/SFID/labels/' + MODE  # yolo格式标签所在文件夹
+# img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/' + MODE  # 图片所在文件夹
+coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/annotations'  # 要生成的标准coco格式标签所在文件夹
+yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/classes.txt'  # 类别文件，一行一个类
+yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/labels/' + MODE  # yolo格式标签所在文件夹
+img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/' + MODE  # 图片所在文件夹
 
 
 def visualize(total, cur, imageFile):

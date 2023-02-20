@@ -203,6 +203,7 @@ class MetricLogger(object):
         MB = 1024.0 * 1024.0
         for obj in iterable:
             data_time.update(time.time() - end)
+            # 此函数得到一个生成器
             yield obj
             iter_time.update(time.time() - end)
             if i % print_freq == 0 or i == len(iterable) - 1:
