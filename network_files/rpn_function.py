@@ -181,7 +181,7 @@ class AnchorsGenerator(nn.Module):
         dtype, device = feature_maps[0].dtype, feature_maps[0].device
 
         # one step in feature map equate n pixel stride in origin image
-        # 计算特征层上的一步等于原始图像上的步长
+        # 计算特征层上的一步等于原始图像上的步长（感受野？）
         strides = [[torch.tensor(image_size[0] // g[0], dtype=torch.int64, device=device),
                     torch.tensor(image_size[1] // g[1], dtype=torch.int64, device=device)] for g in grid_sizes]
 
@@ -202,7 +202,7 @@ class AnchorsGenerator(nn.Module):
             anchors.append(anchors_in_image)
         # 将每一张图像的所有预测特征层的anchors坐标信息拼接在一起
         # anchors是个list，每个元素为一张图像的所有anchors信息
-        anchors = [torch.cat(anchors_per_image) for anchors_per_image in anchors]
+        anchors = [torch.cat(anchors_per_image) for anchors_per_image in anchors]  # 将5个预测特征层的anchors信息拼在一起
         # Clear the cache in case that memory leaks.
         self._cache.clear()
         return anchors
@@ -500,7 +500,7 @@ class RegionProposalNetwork(torch.nn.Module):
 
         # 根据每个预测特征层预测概率排前pre_nms_top_n的anchors索引值获取相应概率信息
         objectness = objectness[batch_idx, top_n_idx]
-        levels = levels[batch_idx, top_n_idx]
+        levels = levels[batch_idx, top_n_idx]  # top_n_idx；二维tensor做索引切片？==>花式索引
         # 预测概率排前pre_nms_top_n的anchors索引值获取相应bbox坐标信息
         proposals = proposals[batch_idx, top_n_idx]
 
@@ -607,7 +607,7 @@ class RegionProposalNetwork(torch.nn.Module):
         # objectness和pred_bbox_deltas都是list
         objectness, pred_bbox_deltas = self.head(features)
 
-        # 生成一个batch图像的所有anchors信息,list(tensor)元素个数等于batch_size
+        # 生成一个batch图像的所有anchors信息(所有预测特征层的anchors信息已经cat在一起),list(tensor)元素个数等于batch_size
         anchors = self.anchor_generator(images, features)
 
         # batch_size
@@ -618,7 +618,7 @@ class RegionProposalNetwork(torch.nn.Module):
         num_anchors_per_level_shape_tensors = [o[0].shape for o in objectness]
         num_anchors_per_level = [s[0] * s[1] * s[2] for s in num_anchors_per_level_shape_tensors]
 
-        # 调整内部tensor格式以及shape
+        # 调整内部tensor格式以及shape（这一步将一批图像预测的分数和边界框全部展平 ========>  cells,1  cells,4）
         objectness, pred_bbox_deltas = concat_box_prediction_layers(objectness,
                                                                     pred_bbox_deltas)
 

@@ -239,6 +239,7 @@ class BoxCoder(object):
         ctr_y = boxes[:, 1] + 0.5 * heights  # anchor/proposal中心y坐标
 
         wx, wy, ww, wh = self.weights  # RPN中为[1,1,1,1], fastrcnn中为[10,10,5,5]
+        # rel_codes[:, 0]结果是1d，rel_codes[:, 0::4]结果是2d
         dx = rel_codes[:, 0::4] / wx   # 预测anchors/proposals的中心坐标x回归参数
         dy = rel_codes[:, 1::4] / wy   # 预测anchors/proposals的中心坐标y回归参数
         dw = rel_codes[:, 2::4] / ww   # 预测anchors/proposals的宽度回归参数
@@ -263,7 +264,7 @@ class BoxCoder(object):
         # ymax
         pred_boxes4 = pred_ctr_y + torch.tensor(0.5, dtype=pred_ctr_y.dtype, device=pred_h.device) * pred_h
 
-        pred_boxes = torch.stack((pred_boxes1, pred_boxes2, pred_boxes3, pred_boxes4), dim=2).flatten(1)
+        pred_boxes = torch.stack((pred_boxes1, pred_boxes2, pred_boxes3, pred_boxes4), dim=2).flatten(1)  # <==> torch.cat(..., dim=1)
         return pred_boxes
 
 

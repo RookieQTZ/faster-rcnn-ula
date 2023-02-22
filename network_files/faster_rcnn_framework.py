@@ -79,10 +79,10 @@ class FasterRCNNBase(nn.Module):
             original_image_sizes.append((val[0], val[1]))
         # original_image_sizes = [img.shape[-2:] for img in images]
 
-        images, targets = self.transform(images, targets)  # 对图像进行预处理
+        images, targets = self.transform(images, targets)  # 对图像进行预处理 images:ImageList  targets:list
 
         # print(images.tensors.shape)
-        features = self.backbone(images.tensors)  # 将图像输入backbone得到特征图
+        features = self.backbone(images.tensors)  # 将图像输入backbone得到特征图，如何将打包好的4维images送入网络
         if isinstance(features, torch.Tensor):  # 若只在一层特征层上预测，将feature放入有序字典中，并编号为‘0’
             features = OrderedDict([('0', features)])  # 若在多层特征层上预测，传入的就是一个有序字典
 
