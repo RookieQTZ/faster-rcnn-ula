@@ -67,4 +67,3 @@ def ulimg2png(in_path, out_path):
 
 
 ulimg2png(UL_IMG_PATH, OUT_PATH)
-i=1
