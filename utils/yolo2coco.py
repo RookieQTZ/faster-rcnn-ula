@@ -1,34 +1,37 @@
+import datetime
 import os
 import json
 import cv2
 import random
-import time
 from PIL import Image
 
 # train2017 val2017
 MODE = "val2017"
 
-# coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/annotations'  # 要生成的标准coco格式标签所在文件夹
-# yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/classes.txt'  # 类别文件，一行一个类
-# yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/SFID/labels/' + MODE  # yolo格式标签所在文件夹
-# img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/' + MODE  # 图片所在文件夹
-coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/annotations'  # 要生成的标准coco格式标签所在文件夹
-yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/classes.txt'  # 类别文件，一行一个类
-yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/labels/' + MODE  # yolo格式标签所在文件夹
-img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/' + MODE  # 图片所在文件夹
+coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/annotations'  # 要生成的标准coco格式标签所在文件夹
+yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/classes.txt'  # 类别文件，一行一个类
+yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/SFID/labels/' + MODE  # yolo格式标签所在文件夹
+img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/' + MODE  # 图片所在文件夹
+# coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/annotations'  # 要生成的标准coco格式标签所在文件夹
+# yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/classes.txt'  # 类别文件，一行一个类
+# yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/labels/' + MODE  # yolo格式标签所在文件夹
+# img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/' + MODE  # 图片所在文件夹
 
 
 def visualize(total, cur, imageFile):
     # [================>              ]  50
     print("\r" + imageFile + "\t\t" + "[", end='')
-    progress = int(cur / total * 50)
+    progress = int((cur + 1) / total * 50)
     c_progress = '='
     c_remain = '-'
     ctr = '>'
     print(c_progress * progress + ctr + c_remain * (50 - progress), end='')
     print("]" + str(progress * 2) + "%", end='')
+    if cur + 1 == total:
+        print()
 
 
+start = datetime.datetime.now()
 
 with open(yolo_format_classes_path, 'r') as fr:  # 打开并读取类别文件
     lines1 = fr.readlines()
@@ -112,3 +115,6 @@ name = os.path.join(coco_format_save_path, "instances_" + MODE + '.json')
 with open(name, 'w') as fw:  # 将字典信息写入.json文件中
     json.dump(write_json_context, fw, indent=2)
 print("\ncongratulations: yolo2coco successful!!")
+
+end = datetime.datetime.now()
+print("执行时间：" + str((end - start).seconds) + "s")
