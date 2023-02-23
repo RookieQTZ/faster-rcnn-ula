@@ -24,13 +24,18 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch,
         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
 
     mloss = torch.zeros(1).to(device)  # mean losses
-    for i, [images, targets] in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+    for i, [org_ul_images, targets] in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+        images = [org_ul_image[0] for org_ul_image in org_ul_images]
+        ul_images = [org_ul_image[1] for org_ul_image in org_ul_images]
+
         images = list(image.to(device) for image in images)
+        ul_images = list(ul_image.to(device) for ul_image in ul_images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         # 混合精度训练上下文管理器，如果在CPU环境中不起任何作用
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            loss_dict = model(images, targets)
+            # todo
+            loss_dict = model(images, ul_images, targets)
             losses = sum(loss for loss in loss_dict.values())
 
         # reduce losses over all GPUs for logging purpose
@@ -81,15 +86,16 @@ def evaluate(model, data_loader, device):
     iou_types = _get_iou_types(model)
     coco_evaluator = CocoEvaluator(coco, iou_types)
 
-    for image, targets in metric_logger.log_every(data_loader, 100, header):
-        image = list(img.to(device) for img in image)
+    for images, targets in metric_logger.log_every(data_loader, 100, header):
+        image = list(imgs[0].to(device) for imgs in images)
+        ul_image = list(imgs[1].to(device) for imgs in images)
 
         # 当使用CPU时，跳过GPU相关指令
         if device != torch.device("cpu"):
             torch.cuda.synchronize(device)
 
         model_time = time.time()
-        outputs = model(image)
+        outputs = model(image, ul_image)
 
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
         model_time = time.time() - model_time

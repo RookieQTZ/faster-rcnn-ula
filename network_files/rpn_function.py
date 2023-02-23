@@ -627,7 +627,7 @@ class RegionProposalNetwork(torch.nn.Module):
         # the proposals
         # 将预测的bbox regression参数应用到anchors上得到最终预测bbox坐标
         proposals = self.box_coder.decode(pred_bbox_deltas.detach(), anchors)
-        proposals = proposals.view(num_images, -1, 4)
+        proposals = proposals.view(num_images, -1, 4)  # proposals预测的四个坐标出现 nan 978 nan 1323 的情况
 
         # 筛除小boxes框，nms处理，根据预测概率获取前post_nms_top_n个目标
         boxes, scores = self.filter_proposals(proposals, objectness, images.image_sizes, num_anchors_per_level)

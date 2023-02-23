@@ -209,7 +209,8 @@ class BackboneWithFPN(nn.Module):
                  in_channels_list=None,
                  out_channels=256,
                  extra_blocks=None,
-                 re_getter=True):
+                 re_getter=True,
+                 spatial_attention=None):
         super().__init__()
 
         if extra_blocks is None:
@@ -221,6 +222,9 @@ class BackboneWithFPN(nn.Module):
         else:
             self.body = backbone
 
+        if spatial_attention is None:
+            self.spatial_attention = SpatialAttention()
+
         self.fpn = FeaturePyramidNetwork(
             in_channels_list=in_channels_list,
             out_channels=out_channels,
@@ -229,7 +233,91 @@ class BackboneWithFPN(nn.Module):
 
         self.out_channels = out_channels
 
-    def forward(self, x):
+    def get_ul_pool_result(self, ul_x, h, w):
+        ul_poolings = UlPoolings(h, w)
+        return_layers = {'pool1': '0', 'pool2': '1', 'pool3': '2', 'pool4': '3'}
+        ul_body = IntermediateLayerGetter(ul_poolings, return_layers=return_layers)
+        ul_x = ul_body(ul_x)
+        return ul_x
+
+    def get_attention_result(self, x, ul_x):
+        # unpack OrderedDict into two lists for easier handling
+        names = list(x.keys())
+        x = list(x.values())
+        ul_names = list(ul_x.keys())
+        ul_x = list(ul_x.values())
+
+        # result中保存着每个预测特征层
+        results = []
+
+        for idx in range(len(x) - 1, -1, -1):
+            results.insert(0, x[idx] * self.spatial_attention(x[idx], ul_x[idx]))
+
+        # make it back an OrderedDict
+        out = OrderedDict([(k, v) for k, v in zip(names, results)])
+
+        return out
+
+    def forward(self, x, ul_x):
+        # body: orderDict
         x = self.body(x)
+
+        # 此时，x为resnet50 layer1 layer2 layer3 layer4的输出
+        h = x['0'].shape[2]
+        w = x['0'].shape[3]
+        ul_x = self.get_ul_pool_result(ul_x, h, w)
+
+        # todo: 将x与ul_x进行注意力增强（忘记将fpn的最后一层加上！！）
+        x = self.get_attention_result(x, ul_x)
+
         x = self.fpn(x)
         return x
+
+
+class UlPoolings(nn.Module):
+    '''
+    3, h, w
+    conv(3, 1, size=1, strides=1)
+    1, h, w
+    pooling(size=k, strides=s)
+    '''
+    def __init__(self, h, w):
+        super().__init__()
+        self.pool1 = nn.AdaptiveAvgPool2d((h, w))
+        self.pool2 = nn.AdaptiveAvgPool2d((h // 2, w // 2))
+        self.pool3 = nn.AdaptiveAvgPool2d((h // 4, w // 4))
+        self.pool4 = nn.AdaptiveAvgPool2d((h // 8, w // 8))
+
+    def forward(self, x):
+        x = self.pool1(x)
+        x = self.pool2(x)
+        x = self.pool3(x)
+        x = self.pool4(x)
+
+        return x
+
+
+class SpatialAttention(nn.Module):
+    def __init__(self, kernel_size=7):
+        super(SpatialAttention, self).__init__()
+
+        assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
+        padding = 3 if kernel_size == 7 else 1
+        # in channels = 2 + 2
+        self.conv1 = nn.Conv2d(4, 1, kernel_size, padding=padding, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x1, x2):
+        '''
+        :param x1: origin feature maps
+        :param x2: enhanced images (etc. ul images)
+        :return:
+        '''
+        avg_out = torch.mean(x1, dim=1, keepdim=True)
+        max_out, _ = torch.max(x1, dim=1, keepdim=True)
+        x2_avg_out = torch.mean(x2, dim=1, keepdim=True)
+        x2_max_out, _ = torch.max(x2, dim=1, keepdim=True)
+        x = torch.cat([avg_out, max_out, x2_avg_out, x2_max_out], dim=1)
+        x = self.conv1(x)
+        out = self.sigmoid(x)
+        return out
