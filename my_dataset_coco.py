@@ -126,7 +126,7 @@ class CocoDetection(data.Dataset):
         path = coco.loadImgs(img_id)[0]['file_name']
         # print(path)
         img = Image.open(os.path.join(self.img_root, path)).convert('RGB')
-        img_ul = Image.open(os.path.join(self.img_root, path.split(".")[0] + "_ul.jpg")).convert('RGB')
+        img_ul = Image.open(os.path.join(self.img_root, "ul_" + path.split(".")[0] + ".jpg")).convert('RGB')
         img_with_ul = [img, img_ul]
 
         w, h = img.size

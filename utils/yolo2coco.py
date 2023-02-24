@@ -8,14 +8,14 @@ from PIL import Image
 # train2017 val2017
 MODE = "val2017"
 
-coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/annotations'  # 要生成的标准coco格式标签所在文件夹
-yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/classes.txt'  # 类别文件，一行一个类
-yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/SFID/labels/' + MODE  # yolo格式标签所在文件夹
-img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/' + MODE  # 图片所在文件夹
-# coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/annotations'  # 要生成的标准coco格式标签所在文件夹
-# yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/classes.txt'  # 类别文件，一行一个类
-# yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/labels/' + MODE  # yolo格式标签所在文件夹
-# img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/' + MODE  # 图片所在文件夹
+# coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/annotations'  # 要生成的标准coco格式标签所在文件夹
+# yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/classes.txt'  # 类别文件，一行一个类
+# yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/SFID/labels/' + MODE  # yolo格式标签所在文件夹
+# img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/coco2017/' + MODE  # 图片所在文件夹
+coco_format_save_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/annotations'  # 要生成的标准coco格式标签所在文件夹
+yolo_format_classes_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/classes.txt'  # 类别文件，一行一个类
+yolo_format_annotation_path = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/labels/' + MODE  # yolo格式标签所在文件夹
+img_pathDir = 'F:/workspace_pycharm/SODnet/faster-rcnn/data/test/' + MODE  # 图片所在文件夹
 
 
 def visualize(total, cur, imageFile):
@@ -54,6 +54,8 @@ write_json_context['annotations'] = []
 imageFileList = os.listdir(img_pathDir)  # 遍历该文件夹下的所有文件，并将所有文件名添加到列表中
 for i, imageFile in enumerate(imageFileList):
     if not imageFile.endswith(".jpg"):
+        continue
+    if imageFile.startswith("ul_"):
         continue
     # jpg_count = sum([filename.endswith(".jpg") for filename in imageFileList])
     visualize(len(imageFileList), i + 1, imageFile)  # 显示进度
