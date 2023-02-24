@@ -1,3 +1,4 @@
+import math
 import os
 import random
 import json
@@ -12,6 +13,9 @@ MODE = "val"
 JPG_PATH = "../data/enhance/" + MODE + "/insulator"
 OUT_PATH = "../data/enhance/" + MODE + "/enhanced"
 LABELS_PATH = "../data/enhance/" + MODE + "/labels"
+# JPG_PATH = "../data/test/ul/img"
+# OUT_PATH = "../data/test/ul/ul_img"
+# LABELS_PATH = "../data/test/ul/labels"
 
 PNG_PATH = "../data/kou/cut"
 
@@ -30,8 +34,9 @@ def visualize(total, cur, imageFile):
 
 
 # 随机挑选20张绝缘子png，存入png_img_list中
-def rand_select_png(png_path, n=20):
+def rand_select_png(png_path, n=20, resize=False):
     img_file_list = os.listdir(png_path)
+    n = min(len(img_file_list), n)
     rand_idx = [random.randint(0, len(img_file_list) - 1) for i in range(n)]
 
     png_img_list = []
@@ -40,8 +45,9 @@ def rand_select_png(png_path, n=20):
         filename = img_file_list[idx]
         # print(filename)
         img = cv2.imread(os.path.join(png_path, filename), cv2.IMREAD_UNCHANGED)  # hwc
-        # 图片尺寸缩小到 32 * 32 以内
-        img = transform(img)
+        if resize:
+            # 图片尺寸缩小到 32 * 32 以内
+            img = transform(img)
         png_img_list.append(img)
     # print("----- end rand select png -----")
 
@@ -50,14 +56,16 @@ def rand_select_png(png_path, n=20):
 
 # 绝缘子png缩小，水平、垂直翻转
 # 32 64 128
+# area < 32 * 32
 def transform(img, size_min=32):
     sizes = 6 * [32] + 2 * [64] + [128]
     size_min = sizes[random.randint(0, len(sizes) - 1)]
     h = img.shape[0]
     w = img.shape[1]
-    long_side = max(h, w)
-    scale = size_min / long_side
-    img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    scale = h / w
+    h_resize = int(math.sqrt((size_min ** 2) * scale))
+    w_resize = int(math.sqrt((size_min ** 2) / scale))
+    img = cv2.resize(img, (w_resize, h_resize), interpolation=cv2.INTER_AREA)
     return img
 
 
@@ -107,6 +115,11 @@ def float2int(*floats):
 # bgra
 def add_png_in_jpg(jpg, png, xmin, ymin, xmax, ymax):
     # xmax和ymax本质上是numpy的长度，所以不可能取到
+    # 已经在mark阶段过滤了超出图片的坐标，但是还是在此进行校验，增加系统健壮性
+    h = jpg.shape[0]
+    w = jpg.shape[1]
+    ymax = min(h, ymax)
+    xmax = min(w, xmax)
     for i in range(ymin, ymax):
         for j in range(xmin, xmax):
             # 不透明
@@ -119,14 +132,14 @@ def add_png_in_jpg(jpg, png, xmin, ymin, xmax, ymax):
 def yolo2coco(W, H, x, y, w, h):
     x, y, w, h = float(x), float(y), float(w), float(h)  # 将字符串类型转为可计算的int和float类型
 
-    x = round(x * W) + 0.0  # 641
-    y = round(y * H) + 0.0  # 516
-    w = (w * W) // 2 * 2 + 0.0  # 744
-    h = (h * H) // 2 * 2 + 0.0  # 218
-    xmin = abs((x - w / 2))  # 269
-    ymin = abs((y - h / 2))  # 407
-    xmax = abs((x + w / 2))  # 1013
-    ymax = abs((y + h / 2))  # 625
+    x = round(x * W) + 0.0  # 1119
+    y = round(y * H) + 0.0  # 2179
+    w = (w * W) // 2 * 2 + 0.0  # 68
+    h = (h * H) // 2 * 2 + 0.0  # 14
+    xmin = abs((x - w / 2))  # 1085
+    ymin = abs((y - h / 2))  # 2172
+    xmax = abs((x + w / 2))  #
+    ymax = abs((y + h / 2))  #
 
     return xmin, ymin, xmax, ymax
 
@@ -161,8 +174,8 @@ def main():
         W = img.shape[1]
         place_map = np.zeros((H, W), dtype=np.int32)
 
-        txtFile = filename.split(".")[0] + '.txt'  # 获取该图片获取的txt文件
-        with open(os.path.join(LABELS_PATH, txtFile), 'r') as fr:
+        txt_file = filename.split(".")[0] + '.txt'  # 获取该图片获取的txt文件
+        with open(os.path.join(LABELS_PATH, txt_file), 'r') as fr:
             lines = fr.readlines()  # 读取txt文件的每一行数据，lines2是一个列表，包含了一个图片的所有标注信息
         for j, line in enumerate(lines):
             class_id, x, y, w, h = line.strip().split(' ')  # 获取每一个标注框的详细信息
@@ -171,7 +184,7 @@ def main():
             mark_place_map(place_map, xmin, ymin, xmax, ymax)
 
         # 随机选择待增强绝缘子
-        png_img_list = rand_select_png(PNG_PATH)
+        png_img_list = rand_select_png(PNG_PATH, resize=True)
         # 生成随机左上角坐标
         coordinates = generate_coordinate(img)
         for coordinate in coordinates:
@@ -192,7 +205,7 @@ def main():
             img = add_png_in_jpg(img, png_img, xmin, ymin, xmax, ymax)
             # 追加保存yolo坐标信息
             x, y, w, h = coco2yolo(W, H, xmin, ymin, xmax, ymax)
-            with open(os.path.join(LABELS_PATH, txtFile), 'a+') as fr:
+            with open(os.path.join(LABELS_PATH, txt_file), 'a+') as fr:
                 fr.write("0" + " " + str(format(x, '.6f')) + " " + str(format(y, '.6f')) + " " + str(format(w, '.6f')) + " " + str(format(h, '.6f')) + "\n")
 
         # 保存增强图片
@@ -224,6 +237,4 @@ if __name__ == '__main__':
 #     # annos = anno[annotations]: list
 #     # annos[0]['id']    annos[0]['image_id']    category_id  iscrowd  area  bbox  segmentation
 #     anno = json.load(f)
-
-
 
