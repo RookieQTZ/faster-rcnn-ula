@@ -281,25 +281,23 @@ class BackboneWithFPN(nn.Module):
         ul_x = ul_body(ul_x)
         return ul_x
 
-    def get_attention_result(self, x, ul_x):
+    def get_attention_result(self, x):
         # unpack OrderedDict into two lists for easier handling
         names = list(x.keys())
         x = list(x.values())
-        ul_names = list(ul_x.keys())
-        ul_x = list(ul_x.values())
 
         # result中保存着每个预测特征层
         results = []
 
         for idx in range(len(x) - 1, -1, -1):
-            results.insert(0, x[idx] * self.spatial_attention(x[idx], ul_x[idx]))
+            results.insert(0, x[idx] * self.spatial_attention(x[idx]))
 
         # make it back an OrderedDict
         out = OrderedDict([(k, v) for k, v in zip(names, results)])
 
         return out
 
-    def forward(self, x, ul_x):
+    def forward(self, x):
         # body: orderDict
         x = self.body(x)
 
@@ -307,12 +305,12 @@ class BackboneWithFPN(nn.Module):
         x = self.get_channel_result(x)
 
         # 此时，x为resnet50 layer1 layer2 layer3 layer4的输出
-        h = x['0'].shape[2]
-        w = x['0'].shape[3]
-        ul_x = self.get_ul_pool_result(ul_x, h, w)
+        # h = x['0'].shape[2]
+        # w = x['0'].shape[3]
+        # ul_x = self.get_ul_pool_result(ul_x, h, w)
 
         # todo: 将x与ul_x进行注意力增强（忘记将fpn的最后一层加上！！）
-        x = self.get_attention_result(x, ul_x)
+        x = self.get_attention_result(x)
 
         x = self.fpn(x)
         return x
@@ -369,11 +367,10 @@ class SpatialAttention(nn.Module):
 
         assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
         padding = 3 if kernel_size == 7 else 1
-        # in channels = 2 + 2
-        self.conv1 = nn.Conv2d(4, 1, kernel_size, padding=padding, bias=False)
+        self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=padding, bias=False)
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, x1, x2):
+    def forward(self, x1):
         '''
         :param x1: origin feature maps
         :param x2: enhanced images (etc. ul images)
@@ -381,9 +378,7 @@ class SpatialAttention(nn.Module):
         '''
         avg_out = torch.mean(x1, dim=1, keepdim=True)
         max_out, _ = torch.max(x1, dim=1, keepdim=True)
-        x2_avg_out = torch.mean(x2, dim=1, keepdim=True)
-        x2_max_out, _ = torch.max(x2, dim=1, keepdim=True)
-        x = torch.cat([avg_out, max_out, x2_avg_out, x2_max_out], dim=1)
+        x = torch.cat([avg_out, max_out], dim=1)
         x = self.conv1(x)
         out = self.sigmoid(x)
         return out

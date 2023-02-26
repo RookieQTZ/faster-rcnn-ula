@@ -231,40 +231,33 @@ class GeneralizedRCNNTransform(nn.Module):
 
     def forward(self,
                 images,       # type: List[Tensor]
-                ul_images,    # type: List[Tensor]
                 targets=None  # type: Optional[List[Dict[str, Tensor]]]
                 ):
         # type: (...) -> Tuple[ImageList, Optional[List[Dict[str, Tensor]]]]
         images = [img for img in images]
-        ul_images = [ul_img for ul_img in ul_images]
         for i in range(len(images)):
             image = images[i]
-            ul_image = ul_images[i]
             target_index = targets[i] if targets is not None else None
 
             if image.dim() != 3:
                 raise ValueError("images is expected to be a list of 3d tensors "
                                  "of shape [C, H, W], got {}".format(image.shape))
             image = self.normalize(image)                # 对图像进行标准化处理
-            ul_image = self.normalize(ul_image)                # 对图像进行标准化处理
             image, target_index = self.resize(image, target_index)   # 对图像和对应的bboxes缩放到指定范围
-            ul_image, _ = self.resize(ul_image, target_index)   # 对图像和对应的bboxes缩放到指定范围
             images[i] = image
-            ul_images[i] = ul_image
             if targets is not None and target_index is not None:
                 targets[i] = target_index
 
         # 记录resize后的图像尺寸
         image_sizes = [img.shape[-2:] for img in images]
         images = self.batch_images(images)  # 将images打包成一个batch
-        ul_images = self.batch_images(ul_images)  # 将images打包成一个batch
         image_sizes_list = torch.jit.annotate(List[Tuple[int, int]], [])
 
         for image_size in image_sizes:
             assert len(image_size) == 2
             image_sizes_list.append((image_size[0], image_size[1]))
 
-        image_list = ImageList(images, ul_images, image_sizes_list)
+        image_list = ImageList(images, image_sizes_list)
         return image_list, targets
 
 

@@ -42,8 +42,8 @@ class FasterRCNNBase(nn.Module):
 
         return detections
 
-    def forward(self, images, ul_images, targets=None):
-        # type: (List[Tensor], List[Tensor], Optional[List[Dict[str, Tensor]]]) -> Tuple[Dict[str, Tensor], List[Dict[str, Tensor]]]
+    def forward(self, images, targets=None):
+        # type: (List[Tensor], Optional[List[Dict[str, Tensor]]]) -> Tuple[Dict[str, Tensor], List[Dict[str, Tensor]]]
         """
         Arguments:
             images (list[Tensor]): images to be processed
@@ -80,14 +80,14 @@ class FasterRCNNBase(nn.Module):
             original_image_sizes.append((val[0], val[1]))
         # original_image_sizes = [img.shape[-2:] for img in images]
 
-        images, targets = self.transform(images, ul_images, targets)  # 对图像进行预处理 images:ImageList  targets:list
+        images, targets = self.transform(images, targets)  # 对图像进行预处理 images:ImageList  targets:list，ul的结果为什么为负
 
         # todo: ul img poolings
         # ul_poolings = self.ulpoolings(images.ul_tensors)  # 将紫外图像输入ulpoolings得到与原始图对应特征图一样尺寸的图像
 
         # print(images.tensors.shape)
         # features: 5个预测特征图
-        features = self.backbone(images.tensors, images.ul_tensors)  # 将图像输入backbone得到特征图，如何将打包好的4维images送入网络
+        features = self.backbone(images.tensors)  # 将图像输入backbone得到特征图，如何将打包好的4维images送入网络
         if isinstance(features, torch.Tensor):  # 若只在一层特征层上预测，将feature放入有序字典中，并编号为‘0’
             features = OrderedDict([('0', features)])  # 若在多层特征层上预测，传入的就是一个有序字典
 
