@@ -299,13 +299,14 @@ class Matcher(object):
         self.low_threshold = low_threshold    # 0.3
         self.allow_low_quality_matches = allow_low_quality_matches
 
-    def __call__(self, match_quality_matrix):
+    def __call__(self, match_quality_matrix, ul_img, boxes):
         """
         计算anchors与每个gtboxes匹配的iou最大值，并记录索引，
         iou<low_threshold索引值为-1， low_threshold<=iou<high_threshold索引值为-2
         Args:
             match_quality_matrix (Tensor[float]): an MxN tensor, containing the
             pairwise quality between M ground-truth elements and N predicted elements.
+            boxes: anchors or proposals
 
         Returns:
             matches (Tensor[int64]): an N tensor where N[i] is a matched gt in
@@ -335,14 +336,20 @@ class Matcher(object):
             all_matches = None
 
         # Assign candidate matches with low quality to negative (unassigned) values
+        # iou小于0
+        # iou小于阈值
+        #   boxes中不包含ul
+        not_contain_ul = self.get_box_contains_ul_index(boxes, ul_img)
         # 计算iou小于low_threshold的索引
-        below_low_threshold = matched_vals < self.low_threshold
+        below_zero = matched_vals < 0
+        below_low_threshold_and_not_contain_ul = matched_vals < self.low_threshold and not_contain_ul
         # 计算iou在low_threshold与high_threshold之间的索引值
         between_thresholds = (matched_vals >= self.low_threshold) & (
             matched_vals < self.high_threshold
         )
         # iou小于low_threshold的matches索引置为-1
-        matches[below_low_threshold] = self.BELOW_LOW_THRESHOLD  # -1
+        matches[below_zero] = self.BELOW_LOW_THRESHOLD  # -1
+        matches[below_low_threshold_and_not_contain_ul] = self.BELOW_LOW_THRESHOLD  # -1
 
         # iou在[low_threshold, high_threshold]之间的matches索引置为-2
         matches[between_thresholds] = self.BETWEEN_THRESHOLDS    # -2
@@ -352,6 +359,28 @@ class Matcher(object):
             self.set_low_quality_matches_(matches, all_matches, match_quality_matrix)
 
         return matches
+
+    def get_box_contains_ul_index(self, boxes, ul_img):
+        '''
+        get the index of box which contains ul
+        :param boxes: (box : 4)
+        :param ul_img:
+        :return:
+        '''
+        mask = torch.zeros((boxes.size(0), 1), dtype=torch.uint8)
+        h = ul_img.size(1)
+        w = ul_img.size(2)
+        # cpu：极慢！
+        # tmp = ul_img[0, boxes[1]:boxes[3], boxes[0]:boxes[2]]
+        for i, box in enumerate(boxes):
+            xmin = int(max(box[0], 0))
+            ymin = int(max(box[1], 0))
+            xmax = int(min(box[2], w))
+            ymax = int(min(box[3], h))
+            # 包含ul
+            if torch.any(ul_img[0, ymin:ymax, xmin:xmax]):
+                mask[i][0] = 1
+        return mask
 
     def set_low_quality_matches_(self, matches, all_matches, match_quality_matrix):
         """

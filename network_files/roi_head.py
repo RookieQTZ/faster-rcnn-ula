@@ -102,8 +102,8 @@ class RoIHeads(torch.nn.Module):
         self.nms_thresh = nms_thresh      # default: 0.5
         self.detection_per_img = detection_per_img  # default: 100
 
-    def assign_targets_to_proposals(self, proposals, gt_boxes, gt_labels):
-        # type: (List[Tensor], List[Tensor], List[Tensor]) -> Tuple[List[Tensor], List[Tensor]]
+    def assign_targets_to_proposals(self, proposals, gt_boxes, gt_labels, ul_imgs):
+        # type: (List[Tensor], List[Tensor], List[Tensor], List[Tensor]) -> Tuple[List[Tensor], List[Tensor]]
         """
         为每个proposal匹配对应的gt_box，并划分到正负样本中
         Args:
@@ -117,7 +117,7 @@ class RoIHeads(torch.nn.Module):
         matched_idxs = []
         labels = []
         # 遍历每张图像的proposals, gt_boxes, gt_labels信息
-        for proposals_in_image, gt_boxes_in_image, gt_labels_in_image in zip(proposals, gt_boxes, gt_labels):
+        for proposals_in_image, gt_boxes_in_image, gt_labels_in_image, ul_img in zip(proposals, gt_boxes, gt_labels, ul_imgs):
             if gt_boxes_in_image.numel() == 0:  # 该张图像中没有gt框，为背景
                 # background image
                 device = proposals_in_image.device
@@ -134,7 +134,8 @@ class RoIHeads(torch.nn.Module):
 
                 # 计算proposal与每个gt_box匹配的iou最大值，并记录索引，
                 # iou < low_threshold索引值为 -1， low_threshold <= iou < high_threshold索引值为 -2
-                matched_idxs_in_image = self.proposal_matcher(match_quality_matrix)
+                # todo: 包含ul的proposals不会因为iou阈值，而被划分到负样本，但是如果iou<0，还是被认定为负样本
+                matched_idxs_in_image = self.proposal_matcher(match_quality_matrix, ul_img, proposals_in_image)
 
                 # 限制最小值，防止匹配标签时出现越界的情况
                 # 注意-1, -2对应的gt索引会调整到0,获取的标签类别为第0个gt的类别（实际上并不是）,后续会进一步处理
@@ -195,7 +196,8 @@ class RoIHeads(torch.nn.Module):
 
     def select_training_samples(self,
                                 proposals,  # type: List[Tensor]
-                                targets     # type: Optional[List[Dict[str, Tensor]]]
+                                targets,     # type: Optional[List[Dict[str, Tensor]]]
+                                ul_imgs,  # type: List[Tensor]
                                 ):
         # type: (...) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]
         """
@@ -227,7 +229,7 @@ class RoIHeads(torch.nn.Module):
 
         # get matching gt indices for each proposal
         # 为每个proposal匹配对应的gt_box，并划分到正负样本中
-        matched_idxs, labels = self.assign_targets_to_proposals(proposals, gt_boxes, gt_labels)
+        matched_idxs, labels = self.assign_targets_to_proposals(proposals, gt_boxes, gt_labels, ul_imgs)
         # sample a fixed proportion of positive-negative proposals
         # 按给定数量和比例采样正负样本
         sampled_inds = self.subsample(labels)
@@ -352,8 +354,9 @@ class RoIHeads(torch.nn.Module):
                 features,       # type: Dict[str, Tensor]
                 proposals,      # type: List[Tensor]
                 image_shapes,   # type: List[Tuple[int, int]]
-                targets=None    # type: Optional[List[Dict[str, Tensor]]]
-                ):
+                ul_imgs,  # type: List[Tensor]
+                targets=None,    # type: Optional[List[Dict[str, Tensor]]]
+    ):
         # type: (...) -> Tuple[List[Dict[str, Tensor]], Dict[str, Tensor]]
         """
         Arguments:
@@ -373,7 +376,7 @@ class RoIHeads(torch.nn.Module):
         if self.training:
             # 划分正负样本，统计对应gt的标签以及边界框回归信息
             # lables出现了2？？
-            proposals, labels, regression_targets = self.select_training_samples(proposals, targets)
+            proposals, labels, regression_targets = self.select_training_samples(proposals, targets, ul_imgs)
         else:
             labels = None
             regression_targets = None

@@ -382,8 +382,8 @@ class RegionProposalNetwork(torch.nn.Module):
             return self._post_nms_top_n['training']
         return self._post_nms_top_n['testing']
 
-    def assign_targets_to_anchors(self, anchors, targets):
-        # type: (List[Tensor], List[Dict[str, Tensor]]) -> Tuple[List[Tensor], List[Tensor]]
+    def assign_targets_to_anchors(self, anchors, targets, ul_imgs):
+        # type: (List[Tensor], List[Dict[str, Tensor]], List[Tensor]) -> Tuple[List[Tensor], List[Tensor]]
         """
         计算每个anchors最匹配的gt，并划分为正样本，背景以及废弃的样本
         Args：
@@ -397,7 +397,7 @@ class RegionProposalNetwork(torch.nn.Module):
         labels = []
         matched_gt_boxes = []
         # 遍历每张图像的anchors和targets
-        for anchors_per_image, targets_per_image in zip(anchors, targets):
+        for anchors_per_image, targets_per_image, ul_img in zip(anchors, targets, ul_imgs):
             gt_boxes = targets_per_image["boxes"]
             if gt_boxes.numel() == 0:
                 device = anchors_per_image.device
@@ -408,7 +408,7 @@ class RegionProposalNetwork(torch.nn.Module):
                 # set to self.box_similarity when https://github.com/pytorch/pytorch/issues/27495 lands
                 match_quality_matrix = box_ops.box_iou(gt_boxes, anchors_per_image)
                 # 计算每个anchors与gt匹配iou最大的索引（如果iou<0.3索引置为-1，0.3<iou<0.7索引为-2）
-                matched_idxs = self.proposal_matcher(match_quality_matrix)
+                matched_idxs = self.proposal_matcher(match_quality_matrix, ul_img, anchors_per_image)
                 # get the targets corresponding GT for each proposal
                 # NB: need to clamp the indices because we can have a single
                 # GT in the image, and matched_idxs can be -2, which goes
@@ -636,7 +636,7 @@ class RegionProposalNetwork(torch.nn.Module):
         if self.training:
             assert targets is not None
             # 计算每个anchors最匹配的gt，并将anchors进行分类，前景，背景以及废弃的anchors
-            labels, matched_gt_boxes = self.assign_targets_to_anchors(anchors, targets)
+            labels, matched_gt_boxes = self.assign_targets_to_anchors(anchors, targets, images.ul_tensors)
             # 结合anchors以及对应的gt，计算regression参数
             regression_targets = self.box_coder.encode(matched_gt_boxes, anchors)
             loss_objectness, loss_rpn_box_reg = self.compute_loss(

@@ -42,8 +42,8 @@ class FasterRCNNBase(nn.Module):
 
         return detections
 
-    def forward(self, images, targets=None):
-        # type: (List[Tensor], Optional[List[Dict[str, Tensor]]]) -> Tuple[Dict[str, Tensor], List[Dict[str, Tensor]]]
+    def forward(self, images, ul_imgs, targets=None):
+        # type: (List[Tensor], List[Tensor],Optional[List[Dict[str, Tensor]]]) -> Tuple[Dict[str, Tensor], List[Dict[str, Tensor]]]
         """
         Arguments:
             images (list[Tensor]): images to be processed
@@ -80,7 +80,7 @@ class FasterRCNNBase(nn.Module):
             original_image_sizes.append((val[0], val[1]))
         # original_image_sizes = [img.shape[-2:] for img in images]
 
-        images, targets = self.transform(images, targets)  # 对图像进行预处理 images:ImageList  targets:list，ul的结果为什么为负
+        images, targets = self.transform(images, ul_imgs, targets)  # 对图像进行预处理 images:ImageList  targets:list，ul的结果为什么为负
 
         # todo: ul img poolings
         # ul_poolings = self.ulpoolings(images.ul_tensors)  # 将紫外图像输入ulpoolings得到与原始图对应特征图一样尺寸的图像
@@ -97,7 +97,7 @@ class FasterRCNNBase(nn.Module):
         proposals, proposal_losses = self.rpn(images, features, targets)
 
         # 将rpn生成的数据以及标注target信息传入fast rcnn后半部分
-        detections, detector_losses = self.roi_heads(features, proposals, images.image_sizes, targets)
+        detections, detector_losses = self.roi_heads(features, proposals, images.image_sizes, images.ul_tensors, targets)
 
         # 对网络的预测结果进行后处理（主要将bboxes还原到原图像尺度上）
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
@@ -265,7 +265,7 @@ class FasterRCNN(FasterRCNNBase):
                  box_roi_pool=None, box_head=None, box_predictor=None,
                  # 移除低目标概率      fast rcnn中进行nms处理的阈值   对预测结果根据score排序取前100个目标
                  box_score_thresh=0.05, box_nms_thresh=0.5, box_detections_per_img=100,
-                 box_fg_iou_thresh=0.5, box_bg_iou_thresh=0.5,   # fast rcnn计算误差时，采集正负样本设置的阈值
+                 box_fg_iou_thresh=0.5, box_bg_iou_thresh=0.3,   # fast rcnn计算误差时，采集正负样本设置的阈值
                  box_batch_size_per_image=512, box_positive_fraction=0.25,  # fast rcnn计算误差时采样的样本数，以及正样本占所有样本的比例
                  bbox_reg_weights=None,
                  ul_poolings=None):
