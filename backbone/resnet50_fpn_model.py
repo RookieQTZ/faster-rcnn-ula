@@ -62,6 +62,9 @@ class ResNet(nn.Module):
         self.include_top = include_top
         self.in_channel = 64
 
+        # todo: multi model fusion
+        self.fusion = nn.Conv2d(4, 3, kernel_size=1, stride=1)
+
         self.conv1 = nn.Conv2d(3, self.in_channel, kernel_size=7, stride=2,
                                padding=3, bias=False)
         self.bn1 = norm_layer(self.in_channel)
@@ -98,6 +101,8 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        x = self.fusion(x)
+
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -197,3 +202,4 @@ def resnet50_fpn_backbone(pretrain_path="",
     # 通过fpn后得到的每个特征层的channel
     out_channels = 256
     return BackboneWithFPN(resnet_backbone, return_layers, in_channels_list, out_channels, extra_blocks=extra_blocks)
+

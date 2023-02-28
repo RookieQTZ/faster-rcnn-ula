@@ -43,8 +43,8 @@ class FasterRCNNBase(nn.Module):
 
         return detections
 
-    def forward(self, images, targets=None):
-        # type: (List[Tensor], Optional[List[Dict[str, Tensor]]]) -> Tuple[Dict[str, Tensor], List[Dict[str, Tensor]]]
+    def forward(self, images, ul_images, targets=None):
+        # type: (List[Tensor], List[Tensor], Optional[List[Dict[str, Tensor]]]) -> Tuple[Dict[str, Tensor], List[Dict[str, Tensor]]]
         """
         Arguments:
             images (list[Tensor]): images to be processed
@@ -82,8 +82,15 @@ class FasterRCNNBase(nn.Module):
         # original_image_sizes = [img.shape[-2:] for img in images]
 
         images, targets = self.transform(images, targets)  # 对图像进行预处理 images:ImageList  targets:list，ul的结果为什么为负
+        ul_images, targets = self.transform(ul_images, targets)  # 对图像进行预处理 images:ImageList  targets:list，ul的结果为什么为负
 
-        # todo: ul img poolings
+        # todo: 将img与ul img进行拼接
+        imgs_tensor = images.tensors
+        ul_imgs_tensor = ul_images.tensors
+        ul_imgs_tensor = torch.unsqueeze(ul_imgs_tensor[:, 0, :, :], dim=1)
+        images.tensors = torch.cat((imgs_tensor, ul_imgs_tensor), dim=1)
+
+        # ul img poolings
         # ul_poolings = self.ulpoolings(images.ul_tensors)  # 将紫外图像输入ulpoolings得到与原始图对应特征图一样尺寸的图像
 
         # print(images.tensors.shape)
