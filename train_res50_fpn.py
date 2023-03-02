@@ -9,6 +9,7 @@ from backbone import resnet50_fpn_backbone
 from my_dataset_coco import CocoDetection
 from train_utils import GroupedBatchSampler, create_aspect_ratio_groups
 from train_utils import train_eval_utils as utils
+import plot_curve
 
 
 def create_model(num_classes, load_pretrain_weights=True):
@@ -45,7 +46,9 @@ def main(args):
     print("Using {} device training.".format(device.type))
 
     # 用来保存coco_info的文件
-    results_file = "./save_weights/results{}.txt".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    # results_file = "./save_weights/results{}.txt".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    results_file = "./save_weights/results.txt"
+    visdom_file = "./save_weights/visdom.log"
 
     data_transform = {
         "train": transforms.Compose([transforms.ToTensor(),
@@ -119,7 +122,9 @@ def main(args):
                                                    gamma=0.33)
 
     # 如果指定了上次训练保存的权重文件地址，则接着上次结果接着训练
+    viz = plot_curve.create_visdom(visdom_file)
     if args.resume != "":
+        plot_curve.load_visdom(viz, visdom_file)
         checkpoint = torch.load(args.resume, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
@@ -135,7 +140,7 @@ def main(args):
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch, printing every 10 iterations
-        mean_loss, lr = utils.train_one_epoch(model, optimizer, train_data_loader,
+        mean_loss, loss_dict, lr = utils.train_one_epoch(model, optimizer, train_data_loader,
                                               device=device, epoch=epoch,
                                               print_freq=50, warmup=True,
                                               scaler=scaler)
@@ -146,7 +151,10 @@ def main(args):
         lr_scheduler.step()
 
         # evaluate on the test dataset
-        coco_info = utils.evaluate(model, val_data_set_loader, device=device)
+        # todo: 最后一个epoch，才绘制pr曲线
+        # todo: 拿到所有ap、ar信息，分别保存
+        # todo: 所有损失
+        coco_info = utils.evaluate(model, val_data_set_loader, epoch, args.epochs - 1, viz, device=device)
 
         # write into txt
         with open(results_file, "a") as f:
@@ -166,6 +174,24 @@ def main(args):
         if args.amp:
             save_files["scaler"] = scaler.state_dict()
         torch.save(save_files, "./save_weights/resNetFpn-model-{}.pth".format(epoch))
+
+        # 损失曲线
+        plot_curve.visdom_draw(viz, mean_loss, epoch, title='Loss', ylabel='loss')
+        plot_curve.visdom_draw(viz, loss_dict['loss_classifier'], epoch, title='Loss Classifier', ylabel='loss')
+        plot_curve.visdom_draw(viz, loss_dict['loss_box_reg'], epoch, title='Loss Box Reg', ylabel='loss')
+        plot_curve.visdom_draw(viz, loss_dict['loss_objectness'], epoch, title='Loss Objectness', ylabel='loss')
+        plot_curve.visdom_draw(viz, loss_dict['loss_rpn_box_reg'], epoch, title='Loss Rpn Box Reg', ylabel='loss')
+        # ap ar
+        plot_curve.visdom_draw(viz, coco_info[0], epoch, title='mAP', ylabel='mAP')
+        plot_curve.visdom_draw(viz, coco_info[3], epoch, title='AP Small', ylabel='AP')
+        plot_curve.visdom_draw(viz, coco_info[4], epoch, title='AP Medium', ylabel='AP')
+        plot_curve.visdom_draw(viz, coco_info[5], epoch, title='AP Large', ylabel='AP')
+        plot_curve.visdom_draw(viz, coco_info[9], epoch, title='AR Small', ylabel='AR')
+        plot_curve.visdom_draw(viz, coco_info[10], epoch, title='AR Medium', ylabel='AR')
+        plot_curve.visdom_draw(viz, coco_info[11], epoch, title='AR Large', ylabel='AR')
+        # pr
+
+
 
     # plot loss and lr curve
     if len(train_loss) != 0 and len(learning_rate) != 0:

@@ -2,11 +2,14 @@ import math
 import sys
 import time
 
+import matplotlib.pyplot as plt
 import torch
+import numpy as np
 
 from .coco_utils import get_coco_api_from_dataset
 from .coco_eval import CocoEvaluator
 import train_utils.distributed_utils as utils
+import plot_curve
 
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch,
@@ -33,7 +36,6 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch,
 
         # 混合精度训练上下文管理器，如果在CPU环境中不起任何作用
         with torch.cuda.amp.autocast(enabled=scaler is not None):
-            # todo
             loss_dict = model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
 
@@ -66,11 +68,11 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch,
         now_lr = optimizer.param_groups[0]["lr"]
         metric_logger.update(lr=now_lr)
 
-    return mloss, now_lr
+    return mloss, loss_dict, now_lr
 
 
 @torch.no_grad()
-def evaluate(model, data_loader, device):
+def evaluate(model, data_loader, epoch, last_epoch, viz, device):
 
     cpu_device = torch.device("cpu")
     model.eval()
@@ -114,9 +116,34 @@ def evaluate(model, data_loader, device):
     coco_evaluator.accumulate()
     coco_evaluator.summarize()
 
+    # coco_evaluator找到数据，绘制pr曲线
+    if epoch == last_epoch:
+        # evaluate_predictions_on_coco(coco_evaluator.coco_eval[iou_types[0]])
+        plot_curve.visdom_pr(viz, coco_evaluator.coco_eval[iou_types[0]])
+
     coco_info = coco_evaluator.coco_eval[iou_types[0]].stats.tolist()  # numpy to list
 
     return coco_info
+
+
+def evaluate_predictions_on_coco(coco_eval):
+    pr_arr1 = coco_eval.eval['precision'][0, :, 0, 0, 2]
+    pr_arr2 = coco_eval.eval['precision'][4, :, 0, 0, 2]
+    pr_arr3 = coco_eval.eval['precision'][8, :, 0, 0, 2]
+
+    x = np.arange(0.0, 1.01, 0.01)
+    plt.xlabel('recall')
+    plt.xlabel('precision')
+    plt.xlim(0, 1.0)
+    plt.ylim(0, 1.01)
+    plt.grid(True)
+
+    plt.plot(x, pr_arr1, 'b-', label='IOU=0.5')
+    plt.plot(x, pr_arr2, 'c-', label='IOU=0.7')
+    plt.plot(x, pr_arr3, 'y-', label='IOU=0.9')
+
+    plt.legend(loc="lower left")
+    plt.show()
 
 
 def _get_iou_types(model):
